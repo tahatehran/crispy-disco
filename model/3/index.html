@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سامانه اطلاع‌رسانی اتوبوس</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --header-bg: #2c5282;
+            --header-text: #ffffff;
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --text-primary: #2d3748;
+            --text-secondary: #4a5568;
+            --highlight: #4299e1;
+            --bus-color: #4299e1;
+            --station-highlight: #48bb78;
+            --time-color: #805ad5;
+        }
+
+        @font-face {
+            font-family: 'Vazir';
+            src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/Vazir-Regular.woff2') format('woff2');
+        }
+
+        body {
+            font-family: 'Vazir', sans-serif;
+            background-color: #f7fafc;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        /* انیمیشن‌ها */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes slide-in {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px var(--station-highlight); }
+            50% { box-shadow: 0 0 20px var(--station-highlight); }
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes moveBus {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* هدر */
+        .header {
+            background-color: var(--header-bg);
+            color: var(--header-text);
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        /* کارت ایستگاه */
+        .station-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            animation: slide-in 0.5s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .station-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+        }
+
+        .station-card.فعلی {
+            animation: glow 2s infinite;
+            border-color: var(--station-highlight);
+        }
+
+        /* آیکون ایستگاه */
+        .station-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .station-icon::before {
+            content: '🚏';
+            font-size: 2rem;
+        }
+
+        /* تایمر دایره‌ای */
+        .circular-timer {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin: 1rem auto;
+        }
+
+        .circular-timer svg {
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+
+        .progress-circle {
+            transition: stroke-dashoffset 1s linear;
+            stroke: var(--highlight);
+            stroke-width: 4px;
+            fill: none;
+        }
+
+        .time-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+
+        /* اتوبوس متحرک */
+        .bus-container {
+            position: relative;
+            height: 40px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+
+        .bus-icon {
+            position: absolute;
+            font-size: 2rem;
+            animation: moveBus 10s linear infinite;
+        }
+
+        /* نشانگر وضعیت */
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-left: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-on-time { background-color: #48bb78; }
+        .status-delayed { background-color: #ed8936; }
+        .status-far { background-color: #4299e1; }
+
+        /* زمان رسیدن */
+        .arrival-time {
+            background: linear-gradient(45deg, var(--time-color), var(--header-bg));
+            color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            margin: 1rem 0;
+            font-size: 1.2rem;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+
+        .arrival-time:hover {
+            transform: scale(1.05);
+        }
+
+        /* نمودار مسیر */
+        .route-diagram {
+            margin: 2rem 0;
+            padding: 1rem;
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .station-symbol {
+            font-size: 1.5rem;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .moving-bus {
+            font-size: 1.5rem;
+        }
+
+        /* بخش به‌روزرسانی */
+        #countdown {
+            text-align: center;
+            color: var(--text-secondary);
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+
+        /* رسپانسیو */
+        @media (max-width: 768px) {
+            .station-card {
+                margin: 0.5rem;
+            }
+
+            .circular-timer {
+                width: 90px;
+                height: 90px;
+            }
+
+            .time-display {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>سامانه اطلاع‌رسانی اتوبوس</h1>
+        <p id="countdown">در حال بارگذاری...</p>
+    </div>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8 offset-md-2">
+                <div id="route-diagram" class="route-diagram"></div>
+                <div id="current-station"></div>
+                <div id="next-stations"></div>
+                <div id="previous-stations"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        let countdownTimer;
+        let stationsData = {
+            current: {
+                name: "ایستگاه مرکزی",
+                code: "C01",
+                eta: "5"
+            },
+            next: [
+                { name: "میدان انقلاب", code: "N01", eta: "10" },
+                { name: "میدان آزادی", code: "N02", eta: "15" }
+            ],
+            previous: [
+                { name: "میدان ولیعصر", code: "P01", eta: "0" },
+                { name: "میدان فردوسی", code: "P02", eta: "0" }
+            ]
+        };
+
+        function createStationCard(station, type) {
+            const statusClass = getStatusClass(station.eta);
+            const arrivalTime = calculateArrivalTime(station.eta);
+            
+            return $(`
+                <div class="station-card ${type}">
+                    <div class="station-icon"></div>
+                    <h4>
+                        <span class="status-indicator ${statusClass}"></span>
+                        ${station.name}
+                        <small>(${station.code})</small>
+                    </h4>
+                    <div class="arrival-time">
+                        <div class="circular-timer">
+                            <svg viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="45" class="progress-circle"/>
+                            </svg>
+                            <div class="time-display">${arrivalTime}</div>
+                        </div>
+                    </div>
+                    ${station.eta ? `
+                        <div class="bus-container">
+                            <span class="bus-icon">🚌</span>
+                            <p>زمان تخمینی رسیدن: ${station.eta} دقیقه</p>
+                        </div>
+                    ` : ''}
+                </div>
+            `);
+        }
+
+        function getStatusClass(eta) {
+            if (!eta) return '';
+            const minutes = parseInt(eta);
+            if (minutes <= 5) return 'status-on-time';
+            if (minutes <= 15) return 'status-delayed';
+            return 'status-far';
+        }
+
+        function calculateArrivalTime(eta) {
+            if (!eta) return 'نامشخص';
+            const now = new Date();
+            const arrivalTime = new Date(now.getTime() + parseInt(eta) * 60000);
+            return arrivalTime.toLocaleTimeString('fa-IR', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function createSVGDiagram(data) {
+            const svgNS = "http://www.w3.org/2000/svg";
+            const svg = document.createElementNS(svgNS, "svg");
+            svg.setAttribute("width", "100%");
+            svg.setAttribute("height", "150");
+            svg.style.overflow = "visible";
+
+            const stations = [
+                ...data.previous.reverse(),
+                data.current,
+                ...data.next
+            ];
+
+            const lineY = 75;
+            const totalWidth = svg.clientWidth || 800;
+            const spacing = totalWidth / (stations.length - 1);
+
+            // خط اصلی مسیر
+            const path = document.createElementNS(svgNS, "path");
+            path.setAttribute("d", `M0,${lineY} L${totalWidth},${lineY}`);
+            path.setAttribute("stroke", "#4a5568");
+            path.setAttribute("stroke-width", "2");
+            svg.appendChild(path);
+
+            stations.forEach((station, index) => {
+                const x = spacing * index;
+
+                // دایره ایستگاه
+                const circle = document.createElementNS(svgNS, "circle");
+                circle.setAttribute("cx", x);
+                circle.setAttribute("cy", lineY);
+                circle.setAttribute("r", "6");
+                circle.setAttribute("fill", station === data.current ? "#48bb78" : "#4a5568");
+                svg.appendChild(circle);
+
+                // نام ایستگاه
+                const text = document.createElementNS(svgNS, "text");
+                text.setAttribute("x", x);
+                text.setAttribute("y", lineY + 25);
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("fill", "#2d3748");
+                text.textContent = station.name;
+                svg.appendChild(text);
+
+                // آیکون ایستگاه
+                const stationSymbol = document.createElementNS(svgNS, "text");
+                stationSymbol.setAttribute("x", x);
+                stationSymbol.setAttribute("y", lineY - 25);
+                stationSymbol.setAttribute("text-anchor", "middle");
+                stationSymbol.setAttribute("class", "station-symbol");
+                stationSymbol.textContent = "🚏";
+                svg.appendChild(stationSymbol);
+
+                if (station.eta) {
+                    const busSymbol = document.createElementNS(svgNS, "text");
+                    busSymbol.setAttribute("class", "moving-bus");
+                    busSymbol.textContent = "🚌";
+                    
+                    const animateMotion = document.createElementNS(svgNS, "animateMotion");
+                    animateMotion.setAttribute("dur", "10s");
+                    animateMotion.setAttribute("repeatCount", "indefinite");
+                    animateMotion.setAttribute("path", `M${x-50},${lineY} L${x+50},${lineY}`);
+                    
+                    busSymbol.appendChild(animateMotion);
+                    svg.appendChild(busSymbol);
+                }
+            });
+
+            return svg;
+        }
+
+        function updateCircularTimer(seconds) {
+            const circle = document.querySelector('.progress-circle');
+            const radius = 45;
+            const circumference = radius * 2 * Math.PI;
+            
+            circle.style.strokeDasharray = `${circumference} ${circumference}`;
+            const offset = circumference - (seconds / 60) * circumference;
+            circle.style.strokeDashoffset = offset;
+        }
+
+        function updateContent(data) {
+            $('#current-station').empty().append(createStationCard(data.current, 'فعلی'));
+            
+            $('#next-stations').empty();
+            data.next.forEach(station => {
+                $('#next-stations').append(createStationCard(station, 'بعدی'));
+            });
+            
+            $('#previous-stations').empty();
+            data.previous.forEach(station => {
+                $('#previous-stations').append(createStationCard(station, 'قبلی'));
+            });
+
+            $('#route-diagram').empty().append(createSVGDiagram(data));
+            
+            updateCountdown(60);
+        }
+
+        function updateCountdown(seconds) {
+            clearInterval(countdownTimer);
+            
+            countdownTimer = setInterval(function () {
+                updateCircularTimer(seconds);
+                $('#countdown').text(`بروزرسانی بعدی در ${seconds} ثانیه`);
+                seconds--;
+                
+                if (seconds < 0) {
+                    clearInterval(countdownTimer);
+                    // در اینجا می‌توانید API call برای دریافت اطلاعات جدید داشته باشید
+                    updateContent(stationsData);
+                }
+            }, 1000);
+        }
+
+        // شروع برنامه
+        $(document).ready(function() {
+            updateContent(stationsData);
+        });
+    </script>
+</body>
+</html>
