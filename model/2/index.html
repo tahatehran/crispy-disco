@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}وضعیت ایستگاه {{ station_name }} | سامانه اطلاع‌رسانی حمل و نقل عمومی{% endblock %}
+
+{% block extra_head %}
+<style>
+    :root {
+        --primary: #2c5282;
+        --secondary: #4299e1;
+        --success: #48bb78;
+        --warning: #ed8936;
+        --danger: #e53e3e;
+        --background: #f7fafc;
+        --card-bg: #ffffff;
+        --text: #2d3748;
+        --border: #e2e8f0;
+        --active-station: #48bb78;
+        --route-line: #cbd5e0;
+    }
+
+    .route-map {
+        background: white;
+        border-radius: 1rem;
+        padding: 2rem;
+        margin: 2rem 0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        overflow-x: auto;
+    }
+
+    .route-line {
+        position: relative;
+        height: 200px;
+        margin: 2rem 0;
+    }
+
+    .route-path {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--route-line);
+        transform: translateY(-50%);
+    }
+
+    .station-point {
+        position: absolute;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--secondary);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .station-point.active {
+        width: 30px;
+        height: 30px;
+        background: var(--active-station);
+        box-shadow: 0 0 20px rgba(72, 187, 120, 0.5);
+        animation: pulse 2s infinite;
+    }
+
+    .current-station-card {
+        background: linear-gradient(135deg, var(--success), var(--secondary));
+        color: white;
+        border-radius: 1rem;
+        padding: 1.5rem;
+        margin: 2rem 0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    @media (max-width: 768px) {
+        .route-map {
+            padding: 1rem;
+            margin: 1rem;
+        }
+        .route-line {
+            height: 150px;
+        }
+    }
+
+    @keyframes pulse {
+        0% { transform: translate(-50%, -50%) scale(1); }
+        50% { transform: translate(-50%, -50%) scale(1.2); }
+        100% { transform: translate(-50%, -50%) scale(1); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="current-station-card">
+        <h3>ایستگاه: {{ station_name }}</h3>
+        <div class="station-info">
+            <div>
+                <span class="station-status {% if is_on_time %}status-on-time{% else %}status-delayed{% endif %}">
+                    {{ 'به موقع' if is_on_time else 'تاخیر' }}
+                </span>
+                <div class="next-arrival">اتوبوس بعدی: {{ next_bus_minutes }} دقیقه</div>
+            </div>
+            <div class="arrival-timer">
+                <div id="countdown">{{ next_bus_time }}</div>
+                <small>تا رسیدن اتوبوس بعدی</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="route-map">
+        <h4>نمودار ارتباط ایستگاه‌ها - {{ 'مسیر رفت' if direction == '76' else 'مسیر برگشت' }}</h4>
+        <div class="route-line">
+            <div class="route-path"></div>
+            {% for station in stations %}
+            <div class="station-point {% if station.id == station_id %}active{% endif %}" 
+                 style="left: {{ station.position }}%">
+                <div class="station-time">{{ station.schedule_time }}</div>
+                <div class="station-label">{{ station.name }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function startCountdown(minutes, seconds) {
+        const countdownElement = document.getElementById('countdown');
+        let totalSeconds = minutes * 60 + seconds;
+
+        const timer = setInterval(() => {
+            if (totalSeconds <= 0) {
+                clearInterval(timer);
+                countdownElement.textContent = "رسیده";
+                return;
+            }
+
+            const min = Math.floor(totalSeconds / 60);
+            const sec = totalSeconds % 60;
+            countdownElement.textContent = 
+                `${min.toString().padStart(2, '۰')}:${sec.toString().padStart(2, '۰')}`;
+            totalSeconds--;
+        }, 1000);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // شروع تایمر با مقدار دریافتی از سرور
+        startCountdown({{ next_bus_minutes }}, 0);
+    });
+</script>
+{% endblock %}
